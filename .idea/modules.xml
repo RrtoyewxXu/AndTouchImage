@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/AndTouchImage.iml" filepath="$PROJECT_DIR$/AndTouchImage.iml" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/touchimageviewlibrary/touchimageviewlibrary.iml" filepath="$PROJECT_DIR$/touchimageviewlibrary/touchimageviewlibrary.iml" />
+    </modules>
+  </component>
+</project>
