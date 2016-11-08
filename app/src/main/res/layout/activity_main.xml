@@ -14,7 +14,7 @@
         android:id="@+id/tiv_main_image"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@drawable/image_2"
+        android:src="@drawable/image_3"
         android:background="@color/colorAccent" />
     <Button
         android:id="@+id/btn_main_change_image_resources"
