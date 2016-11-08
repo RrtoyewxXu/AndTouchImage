@@ -2,14 +2,17 @@ package com.rrtoyewx.touchimageviewlibrary.gesturedetector;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
 
 import com.rrtoyewx.touchimageviewlibrary.R;
-import com.rrtoyewx.touchimageviewlibrary.util.L;
 
-import static android.view.MotionEvent.*;
+import static android.view.MotionEvent.ACTION_CANCEL;
+import static android.view.MotionEvent.ACTION_DOWN;
+import static android.view.MotionEvent.ACTION_MOVE;
+import static android.view.MotionEvent.ACTION_POINTER_DOWN;
+import static android.view.MotionEvent.ACTION_POINTER_UP;
+import static android.view.MotionEvent.ACTION_UP;
 
 /**
  * Created by Rrtoyewx on 2016/11/2.
@@ -17,8 +20,6 @@ import static android.view.MotionEvent.*;
 
 public class RotateGestureDetector {
     public static final float RADIAN_TO_DEGREE = (float) (180.0 / Math.PI);
-    //TODO ：最小的滑动的角度，后期待完成
-    private static final float MIN_ROTATE_DEGREE = 0.1f;
 
     public interface OnRotateGestureListener {
         boolean onRotateBegin(RotateGestureDetector detector);
