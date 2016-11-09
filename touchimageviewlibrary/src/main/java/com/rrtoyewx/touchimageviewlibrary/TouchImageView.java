@@ -235,7 +235,6 @@ public class TouchImageView extends ImageView {
 
         mMatrix.postTranslate(transX, transY);
         fixDragTrans();
-        setImageMatrix(mMatrix);
     }
 
     private void fixDragTrans() {
@@ -347,7 +346,6 @@ public class TouchImageView extends ImageView {
         mMatrix.postScale(factor, factor, centerX, centerY);
         fixScaleTrans();
         fixDragTrans();
-        setImageMatrix(mMatrix);
     }
 
     private void stretchImageToSuper() {
@@ -452,7 +450,6 @@ public class TouchImageView extends ImageView {
         mMatrix.getValues(mMatrixValues);
         mMatrix.postRotate(degree, centerX, centerY);
         mRotateDegree += degree;
-        setImageMatrix(mMatrix);
     }
 
     private void printlnMatrix(String hintMessage) {
@@ -472,6 +469,7 @@ public class TouchImageView extends ImageView {
         mRotateGestureDetector.onTouchEvent(event);
         mGestureDetector.onTouchEvent(event);
 
+        setImageMatrix(mMatrix);
         return true;
     }
 
@@ -487,6 +485,7 @@ public class TouchImageView extends ImageView {
             mFlingCurrentY = newY;
 
             translateImage(transX, transY);
+            setImageMatrix(mMatrix);
             postInvalidate();
         } else {
             mFlingCurrentY = 0;
@@ -505,6 +504,7 @@ public class TouchImageView extends ImageView {
 
             scaleImage(deltaScale, focusX, focusY, true);
             //translateImageToCenterTouchPosition(currentFactor, focusX, focusY);
+            setImageMatrix(mMatrix);
             postInvalidate();
         } else {
             mScaleCurrentFactor = 0;
