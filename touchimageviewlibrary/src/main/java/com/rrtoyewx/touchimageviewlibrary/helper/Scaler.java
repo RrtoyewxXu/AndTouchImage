@@ -1,8 +1,9 @@
 package com.rrtoyewx.touchimageviewlibrary.helper;
 
 import android.os.SystemClock;
-import android.util.Log;
 import android.view.animation.Interpolator;
+
+import com.rrtoyewx.touchimageviewlibrary.util.L;
 
 /**
  * Created by Rrtoyewx on 2016/11/8.
@@ -22,20 +23,21 @@ public class Scaler {
     private float mDurationReciprocal;
     private boolean mFinished;
 
-    private float mFocusX;
-    private float mFocusY;
+    private float mCenterX;
+    private float mCenterY;
+    private float mCurrentFactor;
 
     public Scaler(Interpolator interpolator) {
         this.mInterpolator = interpolator;
     }
 
-    public void startScale(float startScale, float finalScale, float focusX, float focusY) {
-        startScale(startScale, finalScale, DEFAULT_DURATION, focusX, focusY);
+    public void startScale(float startScale, float finalScale, float centerX, float centerY) {
+        startScale(startScale, finalScale, DEFAULT_DURATION, centerX, centerY);
     }
 
-    public void startScale(float startScale, float finalScale, int duration, float focusX, float focusY) {
+    public void startScale(float startScale, float finalScale, int duration, float centerX, float centerY) {
         mFinalScale = finalScale;
-        mStartScale = startScale;
+        mCurrentScale = mStartScale = startScale;
 
         mDuration = duration;
         mFinished = false;
@@ -43,23 +45,36 @@ public class Scaler {
         mStartTime = currentAnimationTimeMillis();
         mDurationReciprocal = 1.0f / mDuration;
 
-        mFocusX = focusX;
-        mFocusY = focusY;
+        mCenterX = centerX;
+        mCenterY = centerY;
+        mCurrentFactor = 0;
     }
 
     public boolean computeScrollOffset() {
         if (mFinished) {
             return false;
         }
-        int timePassed = (int) (currentAnimationTimeMillis() - mStartTime);
-        if (timePassed < mDuration) {
-            float interpolation = mInterpolator.getInterpolation(timePassed * mDurationReciprocal);
-            mCurrentScale = (mFinalScale - mStartScale) * interpolation + mStartScale;
-        } else {
-            mCurrentScale = mFinalScale;
+
+        if (mCurrentScale == mFinalScale
+                || mCurrentFactor == 1.0) {
             mFinished = true;
         }
+
+        int timePassed = (int) (currentAnimationTimeMillis() - mStartTime);
+        if (timePassed < mDuration) {
+            mCurrentFactor = mInterpolator.getInterpolation(timePassed * mDurationReciprocal);
+            mCurrentScale = (mFinalScale - mStartScale) * mCurrentFactor + mStartScale;
+        } else {
+            mCurrentScale = mFinalScale;
+            mCurrentFactor = 1.0f;
+        }
         return true;
+    }
+
+    public void abortAnimation() {
+        mCurrentScale = mFinalScale;
+        mCurrentFactor = 1.0f;
+        mFinished = true;
     }
 
     private long currentAnimationTimeMillis() {
@@ -70,11 +85,15 @@ public class Scaler {
         return mCurrentScale;
     }
 
-    public float getFocusX() {
-        return mFocusX;
+    public float getCenterX() {
+        return mCenterX;
     }
 
-    public float getFocusY() {
-        return mFocusY;
+    public float getCenterY() {
+        return mCenterY;
+    }
+
+    public float getCurrentFactor() {
+        return mCurrentFactor;
     }
 }
