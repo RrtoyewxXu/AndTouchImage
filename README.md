@@ -73,6 +73,7 @@ public void translateImage(float transX, float transY, int duration) {...}
 - transY:平移的Y轴的偏移量
 - animate:是否开启动画平移
 - duration:动画持续时间
+
 -----
 
 
