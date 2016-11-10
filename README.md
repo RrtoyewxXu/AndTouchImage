@@ -2,8 +2,8 @@
 AndTouchImage，很够很好识别缩放，缩放，旋转，双击放大／缩小等手势，
 在TouchImage的基础的改进很多，但是后来发现当引入旋转的手势后，维护图片的中的矩阵太过复杂，不如重新写了一份，这才有了AndTouchView
 ## 效果图
-[!手指直接操作屏幕的效果图](images/pointer_gesture_example.gif)
-[!通过代码来操作的效果图](images/command_example.gif)
+![手指直接操作屏幕的效果图](images/pointer_gesture_example.gif)
+![通过代码来操作的效果图](images/command_example.gif)
 ## 使用情况，
 1. 微博／微信的大图浏览模式，对单图片的操作
 2. 裁剪图片的使用底部的图片
