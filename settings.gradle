@@ -1,1 +1,1 @@
-include ':app', ':touchimageviewlibrary'
+include ':touchimageviewlibrary', ':sample'

@@ -1,0 +1,21 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.rrtoyewx.sample.MainActivity">
+    <item
+        android:id="@+id/action_scale_image"
+        android:orderInCategory="1"
+        android:title="@string/action_scale_image"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_rotate_image"
+        android:orderInCategory="2"
+        android:title="@string/action_rotate_image"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_scroll_image"
+        android:orderInCategory="3"
+        android:title="@string/action_scroll_image"
+        app:showAsAction="never" />
+</menu>

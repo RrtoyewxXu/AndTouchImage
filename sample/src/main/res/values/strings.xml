@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">sample</string>
+    <string name="action_scale_image">缩放图片</string>
+    <string name="action_rotate_image">旋转图片</string>
+    <string name="action_scroll_image">滑动图片</string>
+    <string name="action_settings">Settings</string>
+</resources>

@@ -1,9 +1,8 @@
 package com.rrtoyewx.touchimageviewlibrary.helper;
 
+import android.graphics.PointF;
 import android.os.SystemClock;
 import android.view.animation.Interpolator;
-
-import com.rrtoyewx.touchimageviewlibrary.util.L;
 
 /**
  * Created by Rrtoyewx on 2016/11/8.
@@ -96,4 +95,13 @@ public class Scaler {
     public float getCurrentFactor() {
         return mCurrentFactor;
     }
+
+    public float getFinalScale() {
+        return mFinalScale;
+    }
+
+    public float getStartScale() {
+        return mStartScale;
+    }
+
 }
