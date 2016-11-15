@@ -76,12 +76,6 @@ public class TouchImageView extends ImageView {
     private float mAdjustedDrawableWidth;
     private float mAdjustedDrawableHeight;
 
-    private Matrix mPrevMatrix;
-    private int mPrevViewHeight;
-    private int mPrevViewWidth;
-    private float mPrevAdjustedDrawableWidth;
-    private float mPrevAdjustedDrawableHeight;
-
     private Context mContext;
     private ScaleType mScaleType;
 
@@ -116,7 +110,6 @@ public class TouchImageView extends ImageView {
         mInterpolator = DEFAULT_ANIMATION_INTERPOLATOR;
 
         mMatrix = new Matrix();
-        mPrevMatrix = new Matrix();
 
         mMatrixValues = new float[9];
         mOriginMatrixValue = new float[9];
@@ -210,8 +203,7 @@ public class TouchImageView extends ImageView {
         if (drawable == null
                 || drawable.getIntrinsicWidth() == 0
                 || drawable.getIntrinsicHeight() == 0
-                || mMatrix == null
-                || mPrevMatrix == null) {
+                || mMatrix == null) {
             return;
         }
 
@@ -528,20 +520,6 @@ public class TouchImageView extends ImageView {
         L.e(mMatrixValues[6] + " , " + mMatrixValues[7] + " , " + mMatrixValues[8]);
         L.e("----------------" + hintMessage + " end-----------------");
 
-    }
-
-    private void savePreviousImageInfos() {
-        if (mViewHeight != 0 && mViewWidth != 0) {
-            mPrevViewHeight = mViewHeight;
-            mPrevViewWidth = mViewWidth;
-
-            mMatrix.getValues(mMatrixValues);
-            mPrevMatrix.setValues(mMatrixValues);
-        }
-    }
-
-    private boolean checkHasPreviousImageInfos() {
-        return mPrevMatrix != null && mPrevViewHeight != 0 && mPrevViewWidth != 0;
     }
 
     @Override
