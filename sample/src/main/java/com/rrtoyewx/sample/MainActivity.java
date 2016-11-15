@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
                 mTouchImageView.translateImage(200, 200, 1000);
                 break;
             case R.id.action_change_resource:
-                mTouchImageView.setImageResource(count++ % 2 == 0 ? R.drawable.image_1 : R.drawable.image_4);
+                mTouchImageView.setImageResource(count++ % 2 == 0 ? R.drawable.image_4 : R.drawable.image_3);
                 break;
         }
 

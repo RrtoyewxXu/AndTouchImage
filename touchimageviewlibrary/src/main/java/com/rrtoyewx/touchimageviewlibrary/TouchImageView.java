@@ -1,10 +1,12 @@
 package com.rrtoyewx.touchimageviewlibrary;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.support.annotation.IntDef;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.widget.ScrollerCompat;
@@ -208,7 +210,8 @@ public class TouchImageView extends ImageView {
         if (drawable == null
                 || drawable.getIntrinsicWidth() == 0
                 || drawable.getIntrinsicHeight() == 0
-                || mMatrix == null) {
+                || mMatrix == null
+                || mPrevMatrix == null) {
             return;
         }
 
@@ -244,45 +247,26 @@ public class TouchImageView extends ImageView {
         mAdjustedDrawableHeight = scaleY * drawableHeight;
 
         initOriginImage(scaleX, scaleY, xSpace / 2, ySpace / 2);
-        if (mNormalizedScale != 1.0 || mRotateDegree != 0) {
-            if (!checkHasPreviousImageInfos()) {
-                savePreviousImageInfos();
-            }
-
-            if (checkHasPreviousImageInfos()) {
-                mPrevMatrix.postRotate(-mRotateDegree);
-                mPrevMatrix.getValues(mMatrixValues);
-                float prevTransX = mMatrixValues[Matrix.MTRANS_X];
-                float prevTransY = mMatrixValues[Matrix.MTRANS_Y];
-
-                float prevImageShowWidth = mPrevAdjustedDrawableWidth * mNormalizedScale;
-                float prevImageShowHeight = mPrevAdjustedDrawableHeight * mNormalizedScale;
-
-                float currentTransX = prevTransX / prevImageShowWidth * getImageWidth();
-                float currentTransY = prevTransY / prevImageShowHeight * getImageHeight();
-                mPrevMatrix.postRotate(mRotateDegree);
-
-                mMatrix.getValues(mMatrixValues);
-                mMatrixValues[Matrix.MSCALE_X] = mNormalizedScale * scaleX;
-                mMatrixValues[Matrix.MSCALE_Y] = mNormalizedScale * scaleY;
-                mMatrixValues[Matrix.MTRANS_X] = currentTransX;
-                mMatrixValues[Matrix.MSCALE_Y] = currentTransY;
-                mMatrix.setValues(mMatrixValues);
-                mMatrix.postRotate(mRotateDegree);
-            }
-        }
 
         setImageMatrix(mMatrix);
     }
 
     private void initOriginImage(float originScaleX, float originScaleY, float originTransX, float originTransY) {
-        mNormalizedScale = 1;
-        mRotateDegree = 0;
         mMatrix.setValues(DEFAULT_ORIGIN_MATRIX_VALUE);
         mMatrix.setScale(originScaleX, originScaleY);
         mMatrix.postTranslate(originTransX, originTransY);
+        mNormalizedScale = 1;
+        mRotateDegree = 0;
 
         mMatrix.getValues(mOriginMatrixValue);
+    }
+
+    public void restoreOriginImage() {
+        mMatrix.setValues(mOriginMatrixValue);
+        mRotateDegree = 0;
+        mNormalizedScale = 1;
+
+        setImageMatrix(mMatrix);
     }
 
     private void setState(@STATE int state) {
@@ -562,8 +546,34 @@ public class TouchImageView extends ImageView {
 
     @Override
     public void setImageResource(int resId) {
-        savePreviousImageInfos();
+        if (mOriginMatrixValue != null) {
+            restoreOriginImage();
+        }
         super.setImageResource(resId);
+    }
+
+    @Override
+    public void setImageURI(Uri uri) {
+        if (mOriginMatrixValue != null) {
+            restoreOriginImage();
+        }
+        super.setImageURI(uri);
+    }
+
+    @Override
+    public void setImageBitmap(Bitmap bm) {
+        if (mOriginMatrixValue != null) {
+            restoreOriginImage();
+        }
+        super.setImageBitmap(bm);
+    }
+
+    @Override
+    public void setImageDrawable(Drawable drawable) {
+        if (mOriginMatrixValue != null) {
+            restoreOriginImage();
+        }
+        super.setImageDrawable(drawable);
     }
 
     @Override
@@ -853,6 +863,30 @@ public class TouchImageView extends ImageView {
 
     public float getImageHeight() {
         return mAdjustedDrawableHeight * mNormalizedScale;
+    }
+
+    /**
+     * @return factor that image scale
+     */
+    public float getSale() {
+        return mNormalizedScale;
+    }
+
+    /**
+     * @return factor that image scale
+     */
+    public float getAbsolutelyScale() {
+        if (mOriginMatrixValue == null) {
+            throw new IllegalArgumentException("mOriginMatrixValue初始化错误，查看是否有图片显示");
+        }
+        return mOriginMatrixValue[Matrix.MSCALE_X] * mNormalizedScale;
+    }
+
+    /**
+     * @return :degree that image rotate
+     */
+    public float getRotateDegree() {
+        return mRotateDegree;
     }
 
     class GestureListener extends GestureDetector.SimpleOnGestureListener {
