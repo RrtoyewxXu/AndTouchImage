@@ -3,6 +3,7 @@ package com.rrtoyewx.touchimageviewlibrary;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.IntDef;
 import android.support.v4.view.GestureDetectorCompat;
@@ -26,7 +27,12 @@ import com.rrtoyewx.touchimageviewlibrary.util.L;
 
 public class TouchImageView extends ImageView {
     //-------------------default value-------------------------
+    private static final float DEGREE_TO_RADIAN = (float) (Math.PI / 180);
     private static final Interpolator DEFAULT_ANIMATION_INTERPOLATOR = new AccelerateDecelerateInterpolator();
+    private static final float[] DEFAULT_ORIGIN_MATRIX_VALUE = new float[]{
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1};
 
     private static final float SUPER_MIN_MULTIPLIER = .75f;
     private static final float SUPER_MAX_MULTIPLIER = 1.25f;
@@ -34,7 +40,7 @@ public class TouchImageView extends ImageView {
     private static final int VALUE_MIN_SCALE = 1;
     private static final int VALUE_MAX_SCALE = 3;
 
-    //-----------------------contans that remark state-----------
+    //-----------------------constants that remark state-----------
     private static final int STATE_NONE = 0;
     private static final int STATE_DRAG = 1;
     private static final int STATE_ZOOM = 2;
@@ -59,13 +65,20 @@ public class TouchImageView extends ImageView {
     private float mSuperMinScale;
     private float mSuperMaxScale;
 
-    private Matrix mMatrix;
-    private float[] mMatrixValues = new float[9];
+    private float[] mMatrixValues;
+    private float[] mOriginMatrixValue;
 
+    private Matrix mMatrix;
     private int mViewHeight;
     private int mViewWidth;
-    private float mMathViewWidth;
-    private float mMathViewHeight;
+    private float mAdjustedDrawableWidth;
+    private float mAdjustedDrawableHeight;
+
+    private Matrix mPrevMatrix;
+    private int mPrevViewHeight;
+    private int mPrevViewWidth;
+    private float mPrevAdjustedDrawableWidth;
+    private float mPrevAdjustedDrawableHeight;
 
     private Context mContext;
     private ScaleType mScaleType;
@@ -101,6 +114,10 @@ public class TouchImageView extends ImageView {
         mInterpolator = DEFAULT_ANIMATION_INTERPOLATOR;
 
         mMatrix = new Matrix();
+        mPrevMatrix = new Matrix();
+
+        mMatrixValues = new float[9];
+        mOriginMatrixValue = new float[9];
 
         mShouldCatchNormalGesture = true;
         mShouldCatchScaleGesture = true;
@@ -223,20 +240,49 @@ public class TouchImageView extends ImageView {
 
         float xSpace = mViewWidth - (scaleX * drawableWidth);
         float ySpace = mViewHeight - (scaleY * drawableHeight);
-        mMathViewWidth = scaleX * drawableWidth;
-        mMathViewHeight = scaleY * drawableHeight;
+        mAdjustedDrawableWidth = scaleX * drawableWidth;
+        mAdjustedDrawableHeight = scaleY * drawableHeight;
 
-        // is not scale
-        if (mNormalizedScale == 1) {
-            mNormalizedScale = 1;
-            mRotateDegree = 0;
+        initOriginImage(scaleX, scaleY, xSpace / 2, ySpace / 2);
+        if (mNormalizedScale != 1.0 || mRotateDegree != 0) {
+            if (!checkHasPreviousImageInfos()) {
+                savePreviousImageInfos();
+            }
 
-            mMatrix.setScale(scaleX, scaleY);
-            mMatrix.postTranslate(xSpace / 2, ySpace / 2);
+            if (checkHasPreviousImageInfos()) {
+                mPrevMatrix.postRotate(-mRotateDegree);
+                mPrevMatrix.getValues(mMatrixValues);
+                float prevTransX = mMatrixValues[Matrix.MTRANS_X];
+                float prevTransY = mMatrixValues[Matrix.MTRANS_Y];
+
+                float prevImageShowWidth = mPrevAdjustedDrawableWidth * mNormalizedScale;
+                float prevImageShowHeight = mPrevAdjustedDrawableHeight * mNormalizedScale;
+
+                float currentTransX = prevTransX / prevImageShowWidth * getImageWidth();
+                float currentTransY = prevTransY / prevImageShowHeight * getImageHeight();
+                mPrevMatrix.postRotate(mRotateDegree);
+
+                mMatrix.getValues(mMatrixValues);
+                mMatrixValues[Matrix.MSCALE_X] = mNormalizedScale * scaleX;
+                mMatrixValues[Matrix.MSCALE_Y] = mNormalizedScale * scaleY;
+                mMatrixValues[Matrix.MTRANS_X] = currentTransX;
+                mMatrixValues[Matrix.MSCALE_Y] = currentTransY;
+                mMatrix.setValues(mMatrixValues);
+                mMatrix.postRotate(mRotateDegree);
+            }
         }
 
         setImageMatrix(mMatrix);
-        printlnMatrix("init");
+    }
+
+    private void initOriginImage(float originScaleX, float originScaleY, float originTransX, float originTransY) {
+        mNormalizedScale = 1;
+        mRotateDegree = 0;
+        mMatrix.setValues(DEFAULT_ORIGIN_MATRIX_VALUE);
+        mMatrix.setScale(originScaleX, originScaleY);
+        mMatrix.postTranslate(originTransX, originTransY);
+
+        mMatrix.getValues(mOriginMatrixValue);
     }
 
     private void setState(@STATE int state) {
@@ -244,20 +290,21 @@ public class TouchImageView extends ImageView {
     }
 
     private void translateImageInner(float transX, float transY) {
-        if (getImageHeight() <= mViewHeight) {
-            transY = 0;
-        }
+        float currentImageXValue = (float) Math.max(Math.abs(getImageWidth() * Math.cos(mRotateDegree * DEGREE_TO_RADIAN)), Math.abs(getImageHeight() * Math.sin(mRotateDegree * DEGREE_TO_RADIAN)));
+        float currentImageYValue = (float) Math.max(Math.abs(getImageWidth() * Math.sin(mRotateDegree * DEGREE_TO_RADIAN)), Math.abs(getImageHeight() * Math.cos(mRotateDegree * DEGREE_TO_RADIAN)));
 
-        if (getImageWidth() <= mViewWidth) {
+        if (currentImageXValue <= mViewWidth) {
             transX = 0;
         }
-
+        if (currentImageYValue <= mViewHeight) {
+            transY = 0;
+        }
+        L.d("当图片的长／宽大于View的长／宽时,才可以滑动,滑动距离修正为: distanceX = " + transX + ",distanceY = " + transY);
         mMatrix.postTranslate(transX, transY);
-        fixDragTrans();
+        fixTranslateTrans();
     }
 
     private void animateTranslateImageInner(float transX, float transY) {
-        cancelTranslate();
         setState(STATE_ANIMATE_TRANSLATE);
 
         mMatrix.getValues(mMatrixValues);
@@ -269,7 +316,6 @@ public class TouchImageView extends ImageView {
     }
 
     private void animateTranslateImageInner(float transX, float transY, int duration) {
-        cancelTranslate();
         setState(STATE_ANIMATE_TRANSLATE);
 
         mMatrix.getValues(mMatrixValues);
@@ -280,26 +326,29 @@ public class TouchImageView extends ImageView {
         postInvalidate();
     }
 
-    private void fixDragTrans() {
-        transformMatrix();
+    private void fixTranslateTrans() {
+        PointF midPoint = calculateOriginMapping();
 
         mMatrix.getValues(mMatrixValues);
         float transX = mMatrixValues[Matrix.MTRANS_X];
         float transY = mMatrixValues[Matrix.MTRANS_Y];
+        float currentImageXValue = (float) Math.max(Math.abs(getImageWidth() * Math.cos(mRotateDegree * DEGREE_TO_RADIAN)), Math.abs(getImageHeight() * Math.sin(mRotateDegree * DEGREE_TO_RADIAN)));
+        float currentImageYValue = (float) Math.max(Math.abs(getImageWidth() * Math.sin(mRotateDegree * DEGREE_TO_RADIAN)), Math.abs(getImageHeight() * Math.cos(mRotateDegree * DEGREE_TO_RADIAN)));
 
-        float minTransY = mViewHeight >= getImageHeight() ? 0 : mViewHeight - getImageHeight();
-        float maxTransY = mViewHeight >= getImageHeight() ? mViewHeight - getImageHeight() : 0;
+        float minTransY = mViewHeight >= currentImageYValue ? midPoint.y - (mViewHeight - currentImageYValue) / 2 : (mViewHeight - currentImageYValue) / 2 + midPoint.y;
+        float maxTransY = mViewHeight >= currentImageYValue ? (mViewHeight - currentImageYValue) / 2 + midPoint.y : midPoint.y - (mViewHeight - currentImageYValue) / 2;
 
-        float minTransX = mViewWidth >= getImageWidth() ? 0 : mViewWidth - getImageWidth();
-        float maxTransX = mViewWidth >= getImageWidth() ? mViewWidth - getImageWidth() : 0;
+        float minTransX = mViewWidth >= currentImageXValue ? midPoint.x - (mViewWidth - currentImageXValue) / 2 : (mViewWidth - currentImageXValue) / 2 + midPoint.x;
+        float maxTransX = mViewWidth >= currentImageXValue ? (mViewWidth - currentImageXValue) / 2 + midPoint.x : midPoint.x - (mViewWidth - currentImageXValue) / 2;
 
         transX = transX > maxTransX ? maxTransX : (transX < minTransX ? minTransX : transX);
         transY = transY > maxTransY ? maxTransY : (transY < minTransY ? minTransY : transY);
+
         mMatrixValues[Matrix.MTRANS_X] = transX;
         mMatrixValues[Matrix.MTRANS_Y] = transY;
 
         mMatrix.setValues(mMatrixValues);
-        restoreMatrix();
+        L.i("图片在平移的过程中,为了让图片长／宽小于View的长／宽时，图片始终居中，修正后的偏移量:offsetX = " + transX + ", offsetY = " + transY);
     }
 
     private Matrix transformMatrix() {
@@ -317,13 +366,23 @@ public class TouchImageView extends ImageView {
         mMatrix.postRotate(mRotateDegree, mViewWidth / 2, mViewHeight / 2);
     }
 
+    private PointF calculateOriginMapping() {
+        Matrix matrix = new Matrix();
+        float[] tempFloat = new float[9];
+        matrix.setValues(mOriginMatrixValue);
+        matrix.postScale(mNormalizedScale, mNormalizedScale, mViewWidth / 2, mViewHeight / 2);
+        matrix.postRotate(mRotateDegree, mViewWidth / 2, mViewHeight / 2);
+
+        matrix.getValues(tempFloat);
+        return new PointF(tempFloat[2], tempFloat[5]);
+    }
+
     private void flingImageInner(float velocityX, float velocityY) {
-        cancelTranslate();
         setState(STATE_FLING);
 
         transformMatrix();
-        mMatrix.getValues(mMatrixValues);
 
+        mMatrix.getValues(mMatrixValues);
         mFlingCurrentX = (int) mMatrixValues[Matrix.MTRANS_X];
         mFlingCurrentY = (int) mMatrixValues[Matrix.MTRANS_Y];
 
@@ -332,12 +391,13 @@ public class TouchImageView extends ImageView {
         float minY = getImageHeight() > mViewHeight ? mViewHeight - getImageHeight() : mFlingCurrentY;
         float maxY = getImageHeight() > mViewHeight ? 0 : mFlingCurrentY;
 
+        L.d("抛动作,修正后的minX = " + minX + ",maxX = " + maxX + ",minY = " + minY + ",maxY = " + maxY);
         mScroller.fling((int) mFlingCurrentX, (int) mFlingCurrentY, (int) velocityX, (int) velocityY, (int) minX, (int) maxX, (int) minY, (int) maxY);
 
         restoreMatrix();
     }
 
-    private void cancelTranslate() {
+    private void cancelTranslateAnimate() {
         if (mScroller != null) {
             mScroller.abortAnimation();
             setState(STATE_NONE);
@@ -363,7 +423,7 @@ public class TouchImageView extends ImageView {
 
         mMatrix.postScale(factor, factor, centerX, centerY);
         fixScaleTrans();
-        fixDragTrans();
+        fixTranslateTrans();
     }
 
     private void needToScaleBoundary() {
@@ -381,12 +441,12 @@ public class TouchImageView extends ImageView {
         }
 
         if (needToScaleBoundary) {
+            cancelScaleAnimate();
             animateScaleImageInner(targetScale, mViewWidth / 2, mViewHeight / 2);
         }
     }
 
     private void animateScaleImageInner(float targetScale, float focusX, float focusY) {
-        cancelAnimateScale();
         setState(STATE_ANIMATE_ZOOM);
 
         mAnimateScaleLastValue = mNormalizedScale;
@@ -396,7 +456,6 @@ public class TouchImageView extends ImageView {
     }
 
     private void animateScaleImageInner(float targetScale, float focusX, float focusY, int duration) {
-        cancelAnimateScale();
         setState(STATE_ANIMATE_ZOOM);
 
         mAnimateScaleLastValue = mNormalizedScale;
@@ -405,25 +464,12 @@ public class TouchImageView extends ImageView {
         postInvalidate();
     }
 
-    private void cancelAnimateScale() {
+    private void cancelScaleAnimate() {
         if (mScaler != null) {
             mScaler.abortAnimation();
             mAnimateScaleLastValue = 0;
+            setState(STATE_NONE);
         }
-    }
-
-    private void translateImageToCenterTouchPosition(float factor, float touchX, float touchY, float endScale, float endTransX, float endTransY) {
-        mMatrix.getValues(mMatrixValues);
-        float currentScale = mMatrixValues[Matrix.MSCALE_X];
-        L.e("currentScale:" + currentScale);
-//        scaleImageInner(endScale / currentScale, touchX, touchY, true);
-//        mMatrix.getValues(mMatrixValues);
-//        L.e("distance:" + (mViewWidth / 2 - touchX) + "touchX : " + touchX + "touchY:" + touchY + "currentPosition");
-//        mMatrixValues[Matrix.MTRANS_X] = touchX + (mViewWidth / 2 - endTransX) * factor;
-//        mMatrixValues[Matrix.MTRANS_Y] = touchY + (mViewHeight / 2 - endTransY) * factor;
-//
-//        mMatrix.setValues(mMatrixValues);
-//        mMatrix.postScale(currentScale / endScale, currentScale / endScale, touchX, touchY);
     }
 
     private void fixScaleTrans() {
@@ -439,17 +485,18 @@ public class TouchImageView extends ImageView {
         mMatrixValues[Matrix.MTRANS_Y] = transY;
 
         mMatrix.setValues(mMatrixValues);
-
         restoreMatrix();
     }
 
     private void rotateImageInner(float degree, float centerX, float centerY) {
         mMatrix.postRotate(degree, centerX, centerY);
         mRotateDegree += degree;
+
+        fixRotateTrans();
+        fixTranslateTrans();
     }
 
     private void AnimateRotateImageInner(float targetDegree, float centerX, float centerY) {
-        cancelRotateAnimate();
         setState(STATE_ANIMATE_ROTATE);
 
         mAnimateRotateLastValue = mRotateDegree;
@@ -458,7 +505,6 @@ public class TouchImageView extends ImageView {
     }
 
     private void AnimateRotateImageInner(float targetDegree, float centerX, float centerY, int duration) {
-        cancelRotateAnimate();
         setState(STATE_ANIMATE_ROTATE);
 
         mAnimateRotateLastValue = mRotateDegree;
@@ -469,19 +515,55 @@ public class TouchImageView extends ImageView {
     private void cancelRotateAnimate() {
         if (mRotater != null) {
             mRotater.abortAnimation();
+            mAnimateRotateLastValue = -1;
             setState(STATE_NONE);
         }
     }
 
+    private void fixRotateTrans() {
+        transformMatrix();
+
+        mMatrix.getValues(mMatrixValues);
+        float transX = mMatrixValues[Matrix.MTRANS_X];
+        float transY = mMatrixValues[Matrix.MTRANS_Y];
+
+        transX = getImageWidth() < mViewWidth ? (mViewWidth - getImageWidth()) / 2 : transX;
+        transY = getImageHeight() < mViewHeight ? (mViewHeight - getImageHeight()) / 2 : transY;
+        mMatrixValues[Matrix.MTRANS_X] = transX;
+        mMatrixValues[Matrix.MTRANS_Y] = transY;
+
+        mMatrix.setValues(mMatrixValues);
+        restoreMatrix();
+    }
+
     private void printlnMatrix(String hintMessage) {
         mMatrix.getValues(mMatrixValues);
-        for (int i = 0; i < mMatrixValues.length; i++) {
-            L.e("----------------" + hintMessage + " begin----------------");
-            L.e(mMatrixValues[0] + " , " + mMatrixValues[1] + " , " + mMatrixValues[2]);
-            L.e(mMatrixValues[3] + " , " + mMatrixValues[4] + " , " + mMatrixValues[5]);
-            L.e(mMatrixValues[6] + " , " + mMatrixValues[7] + " , " + mMatrixValues[8]);
-            L.e("----------------" + hintMessage + " end-----------------");
+        L.e("----------------" + hintMessage + " begin----------------");
+        L.e(mMatrixValues[0] + " , " + mMatrixValues[1] + " , " + mMatrixValues[2]);
+        L.e(mMatrixValues[3] + " , " + mMatrixValues[4] + " , " + mMatrixValues[5]);
+        L.e(mMatrixValues[6] + " , " + mMatrixValues[7] + " , " + mMatrixValues[8]);
+        L.e("----------------" + hintMessage + " end-----------------");
+
+    }
+
+    private void savePreviousImageInfos() {
+        if (mViewHeight != 0 && mViewWidth != 0) {
+            mPrevViewHeight = mViewHeight;
+            mPrevViewWidth = mViewWidth;
+
+            mMatrix.getValues(mMatrixValues);
+            mPrevMatrix.setValues(mMatrixValues);
         }
+    }
+
+    private boolean checkHasPreviousImageInfos() {
+        return mPrevMatrix != null && mPrevViewHeight != 0 && mPrevViewWidth != 0;
+    }
+
+    @Override
+    public void setImageResource(int resId) {
+        savePreviousImageInfos();
+        super.setImageResource(resId);
     }
 
     @Override
@@ -593,7 +675,7 @@ public class TouchImageView extends ImageView {
      * @see #scaleImage(float, float, float, boolean) ;
      */
     public void scaleImage(float targetScale, boolean animate) {
-        scaleImage(targetScale, mViewHeight / 2, mViewHeight / 2, animate);
+        scaleImage(targetScale, mViewWidth / 2, mViewHeight / 2, animate);
     }
 
     /**
@@ -629,6 +711,7 @@ public class TouchImageView extends ImageView {
         }
 
         if (animate) {
+            cancelScaleAnimate();
             animateScaleImageInner(mNormalizedScale * targetScale, centerX, centerY);
         }
     }
@@ -658,6 +741,7 @@ public class TouchImageView extends ImageView {
         if (targetScale < mSuperMinScale) {
             L.e("设置的scale太小了，已经处理到了mSuperMaxScale");
         }
+        cancelScaleAnimate();
         animateScaleImageInner(mNormalizedScale * targetScale, centerX, centerY, duration);
     }
 
@@ -701,6 +785,7 @@ public class TouchImageView extends ImageView {
      */
     public void rotateImage(float degree, boolean animate) {
         if (animate) {
+            cancelRotateAnimate();
             AnimateRotateImageInner(mRotateDegree + degree, mViewWidth / 2, mViewHeight / 2);
         } else {
             rotateImageInner(degree, mViewWidth / 2, mViewHeight / 2);
@@ -739,6 +824,7 @@ public class TouchImageView extends ImageView {
             translateImageInner(transX, transY);
             setImageMatrix(mMatrix);
         } else {
+            cancelTranslateAnimate();
             animateTranslateImageInner(transX, transY);
         }
     }
@@ -751,24 +837,28 @@ public class TouchImageView extends ImageView {
      * @param duration :animate duration
      */
     public void translateImage(float transX, float transY, int duration) {
+        cancelTranslateAnimate();
         animateTranslateImageInner(transX, transY, duration);
     }
 
-    public @STATE int getState(){
+    public
+    @STATE
+    int getState() {
         return mState;
     }
+
     public float getImageWidth() {
-        return mMathViewWidth * mNormalizedScale;
+        return mAdjustedDrawableWidth * mNormalizedScale;
     }
 
     public float getImageHeight() {
-        return mMathViewHeight * mNormalizedScale;
+        return mAdjustedDrawableHeight * mNormalizedScale;
     }
 
     class GestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onDown(MotionEvent e) {
-            cancelTranslate();
+            cancelTranslateAnimate();
             setState(STATE_DRAG);
             return true;
         }
@@ -778,7 +868,7 @@ public class TouchImageView extends ImageView {
             float targetScale = mNormalizedScale > mMinScale ? mMinScale : mMaxScale;
             final float focusX = e.getX();
             final float focusY = e.getY();
-
+            L.d("当前手势为:双击,从" + mNormalizedScale + "到" + targetScale + "进行缩放,缩放中心为:centerX = " + focusX + ",centerY = " + focusY);
             animateScaleImageInner(targetScale, focusX, focusY);
             return super.onDoubleTap(e);
         }
@@ -796,6 +886,7 @@ public class TouchImageView extends ImageView {
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
             if (mState == STATE_DRAG) {
+                L.d("当前手势为:滑动,滑动距离为: distanceX = " + distanceX + ",distanceY = " + distanceY);
                 translateImageInner(-distanceX, -distanceY);
             }
             return false;
@@ -804,6 +895,9 @@ public class TouchImageView extends ImageView {
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
             if (mState == STATE_DRAG) {
+                L.d("当前手势为:抛,当前速度:velocityX = " + velocityX + ",velocityY = " + velocityY);
+
+                cancelTranslateAnimate();
                 flingImageInner(velocityX, velocityY);
             }
 
@@ -816,7 +910,6 @@ public class TouchImageView extends ImageView {
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
             if (mState == STATE_ZOOM || mState == STATE_ROTATE) {
-                L.e("onScale : " + detector.getScaleFactor());
                 scaleImageInner(detector.getScaleFactor(), detector.getFocusX(), detector.getFocusY(), true);
                 return true;
             }
@@ -831,7 +924,6 @@ public class TouchImageView extends ImageView {
 
         @Override
         public void onScaleEnd(ScaleGestureDetector detector) {
-            setState(STATE_NONE);
             needToScaleBoundary();
         }
     }
@@ -848,6 +940,7 @@ public class TouchImageView extends ImageView {
             if (mState == STATE_ROTATE
                     || mState == STATE_ZOOM) {
                 rotateImageInner(detector.getDegree(), mViewWidth / 2, mViewHeight / 2);
+                L.d("当前手势为:旋转,旋转的角度的为:" + detector.getDegree() + "缩放的中心(默认)为: centerX = " + (mViewWidth / 2) + "centerY = " + (mViewHeight / 2));
             }
             return true;
         }

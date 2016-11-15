@@ -11,6 +11,7 @@ import com.rrtoyewx.touchimageviewlibrary.TouchImageView;
 
 public class MainActivity extends AppCompatActivity {
     TouchImageView mTouchImageView;
+    int count;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,11 +35,13 @@ public class MainActivity extends AppCompatActivity {
                 mTouchImageView.scaleImage(1.4f);
                 break;
             case R.id.action_rotate_image:
-                Log.e("TAG", "rotate");
                 mTouchImageView.rotateImage(90);
                 break;
             case R.id.action_scroll_image:
                 mTouchImageView.translateImage(200, 200, 1000);
+                break;
+            case R.id.action_change_resource:
+                mTouchImageView.setImageResource(count++ % 2 == 0 ? R.drawable.image_1 : R.drawable.image_4);
                 break;
         }
 

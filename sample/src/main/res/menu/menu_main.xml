@@ -18,4 +18,9 @@
         android:orderInCategory="3"
         android:title="@string/action_scroll_image"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_change_resource"
+        android:orderInCategory="3"
+        android:title="@string/action_change_resource"
+        app:showAsAction="never" />
 </menu>
